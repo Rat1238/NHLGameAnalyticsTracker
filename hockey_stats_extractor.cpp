@@ -1,4 +1,4 @@
-cat > C:\Users\your name \Desktop\NHL 26 Analytics sim\hockey_stats_extractor.cpp << 'CPPEOF'
+cat > C:\Users\name\Desktop\NHL 26 Analytics sim\hockey_stats_extractor.cpp << 'CPPEOF'
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -108,6 +108,7 @@ static int next_season()
             try {
                 mx = std::max(mx, std::stoi(trim(l.substr(0, p))));
             } catch (...) {}
+    }
     }
     return mx + 1;
 }
@@ -222,7 +223,7 @@ int main(int argc,char* argv[])
         std::cerr<<"Usage: hockey_stats_extractor.exe img1.png [img2.png ...]\n";
         return 1;
     }
-    const char* key=std::getenv("API KEY");
+    const char* key=std::getenv("INSERT KEY HERE");
     if(!key||!*key){
         std::cerr<<"Error: GEMINI_API_KEY not set.\n"
                    "  CMD: set GEMINI_API_KEY=your_key\n"
@@ -236,7 +237,8 @@ int main(int argc,char* argv[])
         }
         std::cout<<"\nDone.\n";
     }catch(const std::exception& ex){
-        std::cerr<<"Fatal: "<<ex.what()<<"\n"; return 1;
+        std::cerr<<"Fatal: "<<ex.what()<<"\n"; 
+        return 1;
     }
     return 0;
 }
