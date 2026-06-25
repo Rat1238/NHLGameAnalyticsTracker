@@ -1,1 +1,118 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shobjidl.h>
+#include <combaseapi.h>
 
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_sdl2.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <map>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <vector>
+namespace fs = std::filesystem;
+// ═══════════════════════════════════════════════════════════════════════════════
+//  COULORS
+// ═══════════════════════════════════════════════════════════════════════════════
+static const ImVec4 kGold  = {0.85f,0.65f,0.10f,1.f};
+static const ImVec4 kDim   = {0.45f,0.45f,0.45f,1.f};
+static const ImVec4 kGreen = {0.24f,0.74f,0.32f,1.f};
+static const ImVec4 kRed   = {0.87f,0.20f,0.18f,1.f};
+static const ImVec4 kBlue  = {0.22f,0.48f,0.87f,1.f};
+static const ImVec4 kWhite = {0.90f,0.90f,0.90f,1.f};
+static const ImU32 PAL[]={
+    IM_COL32(85,165,255,255), IM_COL32(255,200,60,255),
+    IM_COL32(60,220,120,255), IM_COL32(255,90,90,255),
+    IM_COL32(200,100,255,255),IM_COL32(255,160,40,255)};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+static std::string trim(std::string s)
+{ auto l=s.find_first_not_of(" \t\r\n"),r=s.find_last_not_of(" \t\r\n");
+  return l==std::string::npos?"":s.substr(l,r-l+1); }
+
+static std::vector<std::string> read_lines(const std::string& path)
+{ std::vector<std::string> v; std::ifstream f(path); if(!f) return v;
+  std::string l; while(std::getline(f,l)){if(!l.empty()&&l.back()=='\r')l.pop_back();v.push_back(l);}
+  return v; }
+
+static std::vector<std::string> pipe_split(const std::string& s)
+{ std::vector<std::string> v; std::istringstream ss(s); std::string t;
+  while(std::getline(ss,t,'|')) v.push_back(trim(t));
+  return v; }
+
+static float to_num(const std::string& s)
+{ std::string c; bool hd=false,dot=false,neg=false;
+  for(char ch:s){
+      if(ch=='-'&&!hd){neg=true;continue;}
+      if(ch=='+'||ch=='%') continue;
+      if(ch==':'){c+='.';continue;}
+      if(std::isdigit(ch)){hd=true;c+=ch;}
+      else if(ch=='.'&&!dot){dot=true;c+=ch;}
+  }
+  if(!hd) return 0.f;
+  return (neg?-1.f:1.f)*std::stof(c); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  WINDOWS FILE PICKER
+// ═══════════════════════════════════════════════════════════════════════════════
+static std::vector<std::string> pick_files_win(const wchar_t* title, bool multi)
+{
+    std::vector<std::string> result;
+    IFileOpenDialog* dlg=nullptr;
+    if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_ALL,
+                               IID_IFileOpenDialog,(void**)&dlg))) return result;
+    COMDLG_FILTERSPEC ft[]={{L"Images",L"*.png;*.jpg;*.jpeg"}};
+    dlg->SetFileTypes(1,ft);
+    dlg->SetTitle(title);
+    if(multi){ DWORD o; dlg->GetOptions(&o); dlg->SetOptions(o|FOS_ALLOWMULTISELECT); }
+    if(SUCCEEDED(dlg->Show(nullptr))){
+        if(multi){
+            IShellItemArray* items=nullptr;
+            if(SUCCEEDED(dlg->GetResults(&items))){
+                DWORD cnt; items->GetCount(&cnt);
+                for(DWORD i=0;i<cnt;i++){
+                    IShellItem* si=nullptr;
+                    if(SUCCEEDED(items->GetItemAt(i,&si))){
+                        wchar_t* pw=nullptr;
+                        if(SUCCEEDED(si->GetDisplayName(SIGDN_FILESYSPATH,&pw))){
+                            char buf[MAX_PATH];
+                            WideCharToMultiByte(CP_UTF8,0,pw,-1,buf,MAX_PATH,nullptr,nullptr);
+                            result.push_back(buf);
+                            CoTaskMemFree(pw);
+                        }
+                        si->Release();
+                    }
+                }
+                items->Release();
+            }
+        } else {
+            IShellItem* si=nullptr;
+            if(SUCCEEDED(dlg->GetResult(&si))){
+                wchar_t* pw=nullptr;
+                if(SUCCEEDED(si->GetDisplayName(SIGDN_FILESYSPATH,&pw))){
+                    char buf[MAX_PATH];
+                    WideCharToMultiByte(CP_UTF8,0,pw,-1,buf,MAX_PATH,nullptr,nullptr);
+                    result.push_back(buf);
+                    CoTaskMemFree(pw);
+                }
+                si->Release();
+            }
+        }
+    }
+    dlg->Release();
+    return result;
+}
