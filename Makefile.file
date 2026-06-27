@@ -1,0 +1,39 @@
+# =============================================================================
+#  Makefile  —  Hockey Stats Viewer  (MSYS2 / MinGW64 on Windows)
+#
+#  Open "MSYS2 MINGW64" from Start Menu, cd to your project folder, then:
+#    make deps      install all required packages (one time)
+#    make imgui     clone Dear ImGui (one time)
+#    make all       build all 4 exe files
+#    make view      launch the GUI
+#    make clean     remove all built exe + generated txt files
+# =============================================================================
+
+CXX      = g++
+CXXFLAGS = -std=c++17 -O2 -Wall -I. -I/mingw64/include
+WIN_LIBS = -L/mingw64/lib -lws2_32 -lcurl -lole32 -luuid -lcomdlg32
+
+IMGUI_DIR = imgui
+IMGUI_SRC = \
+	$(IMGUI_DIR)/imgui.cpp \
+	$(IMGUI_DIR)/imgui_draw.cpp \
+	$(IMGUI_DIR)/imgui_tables.cpp \
+	$(IMGUI_DIR)/imgui_widgets.cpp \
+	$(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp \
+	$(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+
+GUI_INC  = \
+	-I$(IMGUI_DIR) \
+	-I$(IMGUI_DIR)/backends \
+	-I/mingw64/include \
+	$(shell sdl2-config --cflags)
+
+GUI_LIBS = \
+	-L/mingw64/lib \
+	$(shell sdl2-config --libs) \
+	-lopengl32 \
+	-lole32 \
+	-luuid \
+	-lcomdlg32
+
+.PHONY: all deps imgui view clean
