@@ -23,8 +23,9 @@
 #include <string>
 #include <vector>
 namespace fs = std::filesystem;
+
 // ═══════════════════════════════════════════════════════════════════════════════
-//  COULORS
+//  COLOURS / PALETTE
 // ═══════════════════════════════════════════════════════════════════════════════
 static const ImVec4 kGold  = {0.85f,0.65f,0.10f,1.f};
 static const ImVec4 kDim   = {0.45f,0.45f,0.45f,1.f};
@@ -115,4 +116,54 @@ static std::vector<std::string> pick_files_win(const wchar_t* title, bool multi)
     }
     dlg->Release();
     return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  API KEY RESOLUTION
+//  Priority: 1) GEMINI_API_KEY env var
+//            2) api_key.txt in same folder as the exe
+//            3) api_key.txt in current working directory
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Returns the folder the running exe lives in, with trailing backslash.
+static std::string exe_dir()
+{
+    char buf[MAX_PATH] = {};
+    GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    std::string path(buf);
+    auto slash = path.find_last_of("\\/");
+    return (slash != std::string::npos) ? path.substr(0, slash+1) : ".\\";
+}
+
+static std::string try_read_key_file(const std::string& path)
+{
+    std::ifstream f(path);
+    if(!f) return "";
+    std::string k;
+    std::getline(f, k);
+    // strip BOM if Notepad added one
+    if(k.size()>=3 &&
+       (unsigned char)k[0]==0xEF &&
+       (unsigned char)k[1]==0xBB &&
+       (unsigned char)k[2]==0xBF)
+        k = k.substr(3);
+    // trim all whitespace
+    auto l=k.find_first_not_of(" \t\r\n");
+    auto r=k.find_last_not_of(" \t\r\n");
+    return (l!=std::string::npos) ? k.substr(l, r-l+1) : "";
+}
+
+static std::string resolve_api_key()
+{
+    // 1. Environment variable
+    const char* env = std::getenv("GEMINI_API_KEY");
+    if(env && *env) return std::string(env);
+
+    // 2. api_key.txt next to the exe
+    std::string key = try_read_key_file(exe_dir() + "api_key.txt");
+    if(!key.empty()) return key;
+
+    // 3. api_key.txt in current working directory (fallback)
+    key = try_read_key_file("api_key.txt");
+    return key;
 }
