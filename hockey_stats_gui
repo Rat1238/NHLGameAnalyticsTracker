@@ -167,3 +167,69 @@ static std::string resolve_api_key()
     key = try_read_key_file("api_key.txt");
     return key;
 }
+
+// Debug helper — call from the UI to show what the app sees
+static std::string debug_api_key_info()
+{
+    std::string out;
+    char cwd[MAX_PATH]={};
+    GetCurrentDirectoryA(MAX_PATH, cwd);
+
+    out += "Exe folder:  " + exe_dir() + "\n";
+    out += "Working dir: " + std::string(cwd) + "\n\n";
+
+    // Check env var
+    const char* env = std::getenv("GEMINI_API_KEY");
+    if(env && *env)
+        out += "[OK] Env var GEMINI_API_KEY found (" + std::to_string(strlen(env)) + " chars)\n";
+    else
+        out += "[--] Env var GEMINI_API_KEY not set\n";
+
+    // Check file in exe dir
+    std::string fp1 = exe_dir() + "api_key.txt";
+    std::string k1  = try_read_key_file(fp1);
+    if(!k1.empty())
+        out += "[OK] " + fp1 + " found (" + std::to_string(k1.size()) + " chars)\n";
+    else
+        out += "[--] " + fp1 + " not found or empty\n";
+
+    // Check file in cwd
+    std::string fp2 = std::string(cwd) + "\\api_key.txt";
+    std::string k2  = try_read_key_file(fp2);
+    if(!k2.empty())
+        out += "[OK] " + fp2 + " found (" + std::to_string(k2.size()) + " chars)\n";
+    else
+        out += "[--] " + fp2 + " not found or empty\n";
+
+    out += "\nResolved key: ";
+    std::string final_key = resolve_api_key();
+    if(final_key.empty())
+        out += "(empty — this is why you see the error)\n";
+    else
+        out += final_key.substr(0,8) + "... (" + std::to_string(final_key.size()) + " chars total)\n";
+
+    return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  EXTRACTOR RUNNER
+// ═══════════════════════════════════════════════════════════════════════════════
+static bool run_extractor(const std::string& exe,
+                           const std::vector<std::string>& imgs,
+                           std::string& err)
+{
+    std::string key = resolve_api_key();
+    if(key.empty()){
+        err="GEMINI_API_KEY not set. Paste your key into api_key.txt next to the exe.";
+        return false;
+    }
+
+    std::string dir     = exe_dir();
+    std::string exepath = dir + exe;
+    std::string logpath = dir + "extractor_log.txt";
+
+    // Check the extractor exe actually exists before trying to launch it
+    if(GetFileAttributesA(exepath.c_str())==INVALID_FILE_ATTRIBUTES){
+        err = "Cannot find: " + exepath;
+        return false;
+    }
